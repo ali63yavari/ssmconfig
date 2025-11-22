@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+//nolint:gocyclo,funlen,lll // Complex function due to reflection-based mapping with multiple features
 func mapToStruct(values map[string]string, dest interface{}, strict bool, logger func(format string, args ...interface{}), useStrongTyping bool) error {
 	v := reflect.ValueOf(dest)
 	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
@@ -41,7 +42,7 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 
 		if fieldType.Kind() == reflect.Struct {
 			// Check if this nested struct should be decoded from JSON
-			if jsonTag == "true" || jsonTag == "1" || jsonTag == "yes" {
+			if jsonTag == jsonTagTrue || jsonTag == jsonTagOne || jsonTag == jsonTagYes {
 				// Decode nested struct from JSON string
 				var val string
 				var hasValue bool
@@ -203,7 +204,7 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 
 		// Determine whether to use JSON decoding or strongly-typed conversion
 		// Priority: json tag > loader preference
-		useJSON := jsonTag == "true" || jsonTag == "1" || jsonTag == "yes"
+		useJSON := jsonTag == jsonTagTrue || jsonTag == jsonTagOne || jsonTag == jsonTagYes
 
 		if !useJSON {
 			// No explicit JSON tag - use loader's preference
@@ -343,6 +344,7 @@ func filterValuesByPrefix(values map[string]string, prefix string) map[string]st
 	return result
 }
 
+//nolint:gocyclo,funlen // Complex function due to multiple type conversions and bounds checking
 func setFieldValue(fv reflect.Value, val string) error {
 	if !fv.CanSet() {
 		return fmt.Errorf("field cannot be set")
@@ -350,6 +352,7 @@ func setFieldValue(fv reflect.Value, val string) error {
 
 	kind := fv.Kind()
 
+	//nolint:exhaustive // We handle all supported types explicitly, default case handles unsupported types
 	switch kind {
 	case reflect.Invalid:
 		return fmt.Errorf("invalid field kind")
@@ -362,6 +365,7 @@ func setFieldValue(fv reflect.Value, val string) error {
 			return fmt.Errorf("invalid int value: %w", err)
 		}
 		// Check bounds for specific int types
+		//nolint:exhaustive // We handle all int types explicitly
 		switch kind {
 		case reflect.Int, reflect.Int64:
 			// No bounds check needed

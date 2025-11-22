@@ -121,7 +121,7 @@ func TestRefreshingConfig_GetCopy(t *testing.T) {
 
 		// Modify original
 		rc.mu.Lock()
-		rc.config.Value = "modified"
+		rc.config.Value = testValueModified
 		rc.mu.Unlock()
 
 		// Copy should be unchanged
@@ -336,7 +336,7 @@ func TestDeepCopy(t *testing.T) {
 			Value string
 		}
 
-		var original *Config = nil
+		var original *Config
 		copyConfig, err := deepCopy(original)
 		require.NoError(t, err)
 		assert.Nil(t, copyConfig)
@@ -354,8 +354,8 @@ func TestDeepCopy(t *testing.T) {
 		assert.Equal(t, []string{"a", "b", "c"}, copyConfig.Values)
 		// Verify it's a different slice (not the same reference)
 		if len(copyConfig.Values) > 0 && len(original.Values) > 0 {
-			copyConfig.Values[0] = "modified"
-			assert.NotEqual(t, original.Values[0], "modified", "Should be a copy, not a reference")
+			copyConfig.Values[0] = testValueModified
+			assert.NotEqual(t, original.Values[0], testValueModified, "Should be a copy, not a reference")
 		}
 	})
 
@@ -371,8 +371,8 @@ func TestDeepCopy(t *testing.T) {
 		assert.Equal(t, "value", copyConfig.Metadata["key"])
 		// Verify it's a different map (not the same reference)
 		if copyConfig.Metadata != nil {
-			copyConfig.Metadata["key"] = "modified"
-			assert.NotEqual(t, original.Metadata["key"], "modified", "Should be a copy, not a reference")
+			copyConfig.Metadata["key"] = testValueModified
+			assert.NotEqual(t, original.Metadata["key"], testValueModified, "Should be a copy, not a reference")
 		}
 	})
 }

@@ -119,6 +119,7 @@ func deepCopy[T any](src *T) (*T, error) {
 	return result, nil
 }
 
+//nolint:gocyclo,funlen // Complex function due to multiple reflect.Kind cases and deep copying logic
 func copyValue(src, dst reflect.Value) error {
 	switch src.Kind() {
 	case reflect.Invalid:
@@ -138,6 +139,9 @@ func copyValue(src, dst reflect.Value) error {
 	case reflect.String:
 		dst.SetString(src.String())
 		return nil
+	case reflect.Uintptr, reflect.Complex64, reflect.Complex128, reflect.Array,
+		reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		return fmt.Errorf("unsupported kind for copying: %v", src.Kind())
 	case reflect.Ptr:
 		if src.IsNil() {
 			return nil

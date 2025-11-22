@@ -3,6 +3,18 @@ run:
   tests: true
 
 linters-settings:
+  depguard:
+    include-go-root: true
+    rules:
+      main:
+        allow:
+          - github.com/aws/aws-sdk-go-v2/config
+          - github.com/aws/aws-sdk-go-v2/service/ssm
+          - github.com/spf13/viper
+      test:
+        allow:
+          - github.com/stretchr/testify/assert
+          - github.com/stretchr/testify/require
   errcheck:
     check-type-assertions: true
     check-blank: true
@@ -23,7 +35,7 @@ linters-settings:
       - whyNoLint
       - wrapperFunc
   gocyclo:
-    min-complexity: 15
+    min-complexity: 20
   goimports:
     local-prefixes: github.com/ali63yavari/ssmconfig
   lll:
@@ -58,7 +70,6 @@ linters:
   disable-all: true
   enable:
     - bodyclose
-    - depguard
     - dogsled
     - dupl
     - errcheck

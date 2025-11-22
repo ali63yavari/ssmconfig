@@ -145,6 +145,8 @@ func ensureBuiltinValidators() {
 }
 
 // RegisterBuiltinValidators registers common built-in validators.
+//
+//nolint:funlen,gocyclo // Complex function due to multiple validator registrations
 func RegisterBuiltinValidators() {
 	// Email validator
 	RegisterValidator("email", func(value interface{}) error {

@@ -196,6 +196,8 @@ func (l *Loader) loadByPrefix(ctx context.Context, prefix string) (map[string]st
 }
 
 // loadByPrefixWithCache loads parameters with optional cache bypass.
+//
+//nolint:funlen // Complex function due to caching logic and error handling
 func (l *Loader) loadByPrefixWithCache(ctx context.Context, prefix string, useCache bool) (map[string]string, error) {
 	// If not using cache, load fresh and update cache
 	if !useCache {

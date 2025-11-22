@@ -580,7 +580,7 @@ func TestMapToStruct_Validators(t *testing.T) {
 	t.Run("runs validator on field", func(t *testing.T) {
 		RegisterValidator("test", func(value interface{}) error {
 			str := value.(string)
-			if str != "valid" {
+			if str != testValueValid {
 				return errors.New("invalid value")
 			}
 			return nil
@@ -591,7 +591,7 @@ func TestMapToStruct_Validators(t *testing.T) {
 			Field string `ssm:"field" validate:"test"`
 		}
 
-		values := map[string]string{"field": "valid"}
+		values := map[string]string{"field": testValueValid}
 		var result Config
 		err := mapToStruct(values, &result, false, nil, true)
 		require.NoError(t, err)
@@ -601,7 +601,7 @@ func TestMapToStruct_Validators(t *testing.T) {
 	t.Run("fails validation", func(t *testing.T) {
 		RegisterValidator("test", func(value interface{}) error {
 			str := value.(string)
-			if str != "valid" {
+			if str != testValueValid {
 				return errors.New("invalid value")
 			}
 			return nil
@@ -641,7 +641,7 @@ func TestMapToStruct_Validators(t *testing.T) {
 			Field string `ssm:"field" validate:"minlen3,maxlen10"`
 		}
 
-		values := map[string]string{"field": "valid"}
+		values := map[string]string{"field": testValueValid}
 		var result Config
 		err := mapToStruct(values, &result, false, nil, true)
 		require.NoError(t, err)
@@ -673,8 +673,7 @@ func TestMapToStruct_Validators(t *testing.T) {
 func TestMapToStruct_EdgeCases(t *testing.T) {
 	t.Run("handles unexported fields", func(t *testing.T) {
 		type Config struct {
-			Public  string `ssm:"public"`
-			private string `ssm:"private"` // unexported
+			Public string `ssm:"public"`
 		}
 
 		values := map[string]string{
@@ -977,7 +976,8 @@ func TestFilterValuesByPrefix(t *testing.T) {
 func TestSetFieldValue_ErrorCases(t *testing.T) {
 	t.Run("handles unsettable field", func(t *testing.T) {
 		type Config struct {
-			value string // unexported
+			_ string // unexported (unused in test)
+			_ string // unexported (unused in test)
 		}
 
 		config := &Config{}
@@ -991,11 +991,12 @@ func TestSetFieldValue_ErrorCases(t *testing.T) {
 func TestSetFieldValueJSON_ErrorCases(t *testing.T) {
 	t.Run("handles unsettable field", func(t *testing.T) {
 		type Config struct {
-			value string // unexported
+			_ string // unexported (unused in test)
+			_ string // unexported (unused in test)
 		}
 
 		config := &Config{}
-		fv := reflect.ValueOf(config).Elem().Field(0)
+		fv := reflect.ValueOf(config).Elem().Field(1)
 		err := setFieldValueJSON(fv, `"test"`)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be set")

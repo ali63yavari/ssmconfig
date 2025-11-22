@@ -246,11 +246,12 @@ func TestMapToStruct_JSONWithEnvOverride(t *testing.T) {
 func TestSetFieldValue_Reflection(t *testing.T) {
 	t.Run("handles unsettable field via reflection", func(t *testing.T) {
 		type Config struct {
-			value string // unexported
+			_ string // unexported (unused in test)
+			_ string // unexported (unused in test, accessed via reflection)
 		}
 
 		config := &Config{}
-		fv := reflect.ValueOf(config).Elem().Field(0)
+		fv := reflect.ValueOf(config).Elem().Field(1)
 		err := setFieldValue(fv, "test")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be set")
