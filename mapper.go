@@ -26,6 +26,7 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 		envTag := field.Tag.Get("env")
 		requiredTag := field.Tag.Get("required")
 		jsonTag := field.Tag.Get("json")
+		validateTag := field.Tag.Get("validate")
 
 		fv := v.Field(i)
 		if !fv.CanSet() {
@@ -91,6 +92,14 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 						return fmt.Errorf("decoding JSON for nested struct field %s: %w", field.Name, err)
 					}
 				}
+
+				// Run custom validators for nested struct if specified
+				if validateTag != "" {
+					ensureBuiltinValidators() // Ensure built-in validators are available
+					if err := validateField(fv, validateTag, field.Name); err != nil {
+						return err
+					}
+				}
 				continue
 			}
 
@@ -121,8 +130,30 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 
 			// Filter values with the prefix for nested struct
 			nestedValues := filterValuesByPrefix(values, prefix)
+
+			// Check if nested struct itself is required
+			isNestedRequired := isRequiredField(requiredTag)
+
+			// If nested struct is required, check if it has any values
+			if isNestedRequired && len(nestedValues) == 0 {
+				missingInfo := fmt.Sprintf("nested struct field '%s' (ssm:'%s', env:'%s')", field.Name, ssmTag, envTag)
+				missingRequired = append(missingRequired, missingInfo)
+				if logger != nil {
+					logger("WARNING: Required nested struct missing: %s", missingInfo)
+				}
+				continue
+			}
+
 			if err := mapToStruct(nestedValues, nestedPtr, strict, logger, useStrongTyping); err != nil {
 				return fmt.Errorf("mapping nested struct field %s: %w", field.Name, err)
+			}
+
+			// Run custom validators for nested struct if specified
+			if validateTag != "" {
+				ensureBuiltinValidators() // Ensure built-in validators are available
+				if err := validateField(fv, validateTag, field.Name); err != nil {
+					return err
+				}
 			}
 			continue
 		}
@@ -195,14 +226,81 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 				return fmt.Errorf("setting field %s: %w", field.Name, err)
 			}
 		}
+
+		// Run custom validators if specified
+		if validateTag != "" {
+			ensureBuiltinValidators() // Ensure built-in validators are available
+			if err := validateField(fv, validateTag, field.Name); err != nil {
+				return err
+			}
+		}
 	}
 
-	// Only panic if there are missing required fields and strict mode is enabled
+	// Validate and report missing required fields
 	if len(missingRequired) > 0 {
 		msg := fmt.Sprintf("Missing required fields: %s", strings.Join(missingRequired, ", "))
 		if strict {
 			panic(fmt.Sprintf("ssmconfig: %s", msg))
 		}
+		// In non-strict mode, we still log but don't panic
+		// The error is already logged per field above
+	}
+
+	return nil
+}
+
+// ValidateRequiredFields validates that all required fields are present.
+// This can be called separately to check validation without loading.
+// Returns an error listing all missing required fields.
+func ValidateRequiredFields[T any](values map[string]string, logger func(format string, args ...interface{})) error {
+	var result T
+	// Use a temporary struct to validate without actually setting values
+	// We'll use strict=false to collect all missing fields
+	var missingRequired []string
+
+	// Create a validation mapper that only checks for required fields
+	v := reflect.ValueOf(&result)
+	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("type must be a struct")
+	}
+
+	v = v.Elem()
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		ssmTag := field.Tag.Get("ssm")
+		envTag := field.Tag.Get("env")
+		requiredTag := field.Tag.Get("required")
+
+		if !isRequiredField(requiredTag) {
+			continue
+		}
+
+		// Check if value exists
+		hasValue := false
+		if envTag != "" {
+			if os.Getenv(envTag) != "" {
+				hasValue = true
+			}
+		}
+		if !hasValue && ssmTag != "" {
+			if val, exists := values[ssmTag]; exists && val != "" {
+				hasValue = true
+			}
+		}
+
+		if !hasValue {
+			missingInfo := fmt.Sprintf("field '%s' (ssm:'%s', env:'%s')", field.Name, ssmTag, envTag)
+			missingRequired = append(missingRequired, missingInfo)
+			if logger != nil {
+				logger("WARNING: Required field missing: %s", missingInfo)
+			}
+		}
+	}
+
+	if len(missingRequired) > 0 {
+		return fmt.Errorf("missing required fields: %s", strings.Join(missingRequired, ", "))
 	}
 
 	return nil
