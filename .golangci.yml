@@ -4,7 +4,6 @@ run:
 
 linters-settings:
   depguard:
-    include-go-root: true
     rules:
       main:
         allow:
