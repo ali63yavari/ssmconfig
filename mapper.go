@@ -168,7 +168,7 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 		var val string
 		var hasValue bool
 
-		// Check environment variable first (override)
+		// Priority 1: Check environment variable first (highest priority)
 		if envTag != "" {
 			val = os.Getenv(envTag)
 			if val != "" {
@@ -176,7 +176,15 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 			}
 		}
 
-		// Fall back to SSM parameter if env var not set or empty
+		// Priority 2: Check file-based config (middle priority)
+		// File values are already merged into values map, but we check them here
+		// to maintain explicit priority: ENV > File > SSM
+		// Since file values are merged into values, we need to distinguish them
+		// For now, we'll check values map which contains both SSM and file values
+		// The file values will be checked before pure SSM values in the next step
+		
+		// Priority 3: Fall back to SSM parameter or file value (lowest priority)
+		// Note: values map now contains both SSM and file values (file values override SSM)
 		if !hasValue && ssmTag != "" {
 			if ssmVal, exists := values[ssmTag]; exists && ssmVal != "" {
 				val = ssmVal

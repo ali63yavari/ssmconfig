@@ -3,12 +3,14 @@ package ssmconfig
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	"github.com/spf13/viper"
 )
 
 type cacheEntry struct {
@@ -22,6 +24,7 @@ type Loader struct {
 	logger          func(format string, args ...interface{})
 	cache           sync.Map // map[string]*cacheEntry
 	useStrongTyping bool     // If true, use strongly-typed conversion; if false, prefer JSON decoding
+	configFiles     []string // List of config file paths (YAML, JSON, TOML)
 }
 
 type LoaderOption func(*Loader)
@@ -48,6 +51,16 @@ func WithLogger(logger func(format string, args ...interface{})) LoaderOption {
 func WithStrongTyping(useStrongTyping bool) LoaderOption {
 	return func(l *Loader) {
 		l.useStrongTyping = useStrongTyping
+	}
+}
+
+// WithConfigFiles adds configuration file paths to load from.
+// Files are loaded using Viper in order, with later files overriding earlier ones.
+// Supported formats: .yaml, .yml, .json, .toml
+// Priority: ENV > File > SSM
+func WithConfigFiles(filePaths ...string) LoaderOption {
+	return func(l *Loader) {
+		l.configFiles = append(l.configFiles, filePaths...)
 	}
 }
 
@@ -84,17 +97,101 @@ func Load[T any](ctx context.Context, prefix string, opts ...LoaderOption) (*T, 
 
 // LoadWithLoader loads configuration using an existing Loader instance.
 func LoadWithLoader[T any](loader *Loader, ctx context.Context, prefix string) (*T, error) {
-	values, err := loader.loadByPrefix(ctx, prefix)
+	// Load from SSM Parameter Store
+	ssmValues, err := loader.loadByPrefix(ctx, prefix)
 	if err != nil {
 		return nil, err
 	}
 
+	// Load from config files using Viper (if configured)
+	fileValues, err := loader.loadFromFiles()
+	if err != nil {
+		return nil, fmt.Errorf("loading config files: %w", err)
+	}
+
+	// Merge: Start with SSM values, then overlay file values
+	// File values override SSM values (but ENV will override both in mapToStruct)
+	mergedValues := make(map[string]string)
+	// First add SSM values
+	for k, v := range ssmValues {
+		mergedValues[k] = v
+	}
+	// Then overlay file values (file values take precedence over SSM)
+	for k, v := range fileValues {
+		mergedValues[k] = v
+	}
+
 	var result T
-	if err := mapToStruct(values, &result, loader.strict, loader.logger, loader.useStrongTyping); err != nil {
+	if err := mapToStruct(mergedValues, &result, loader.strict, loader.logger, loader.useStrongTyping); err != nil {
 		return nil, fmt.Errorf("mapping to struct: %w", err)
 	}
 
 	return &result, nil
+}
+
+// loadFromFiles loads configuration from YAML, JSON, and TOML files using Viper.
+// Returns a flat map[string]string compatible with SSM parameter format.
+func (l *Loader) loadFromFiles() (map[string]string, error) {
+	if len(l.configFiles) == 0 {
+		return make(map[string]string), nil
+	}
+
+	v := viper.New()
+	firstFile := true
+	
+	// Load each file
+	for _, filePath := range l.configFiles {
+		if filePath == "" {
+			continue
+		}
+
+		// Check if file exists
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			continue // Skip non-existent files
+		}
+
+		// Set file path
+		v.SetConfigFile(filePath)
+		
+		if firstFile {
+			// Read first config file
+			if err := v.ReadInConfig(); err != nil {
+				if l.logger != nil {
+					l.logger("WARNING: Failed to read config file %s: %v", filePath, err)
+				}
+				continue
+			}
+			firstFile = false
+		} else {
+			// Merge subsequent files (later files override earlier ones)
+			if err := v.MergeInConfig(); err != nil {
+				if l.logger != nil {
+					l.logger("WARNING: Failed to merge config file %s: %v", filePath, err)
+				}
+				continue
+			}
+		}
+	}
+
+	// Convert Viper's nested config to flat map[string]string
+	// Viper uses dot notation (e.g., "database.host"), which matches our SSM format
+	result := make(map[string]string)
+	
+	// Get all keys from Viper and convert values to strings
+	keys := v.AllKeys()
+	for _, key := range keys {
+		// Convert Viper's dot notation to SSM slash notation
+		ssmKey := strings.ReplaceAll(key, ".", "/")
+		
+		// Get value and convert to string
+		value := v.Get(key)
+		if value != nil {
+			// Convert to string representation
+			result[ssmKey] = fmt.Sprintf("%v", value)
+		}
+	}
+
+	return result, nil
 }
 
 func (l *Loader) loadByPrefix(ctx context.Context, prefix string) (map[string]string, error) {
