@@ -122,7 +122,9 @@ func (v *ViperRemoteProvider) Stop() {
 // The providerName should be "ssm" or "awsssm" to identify it as an SSM provider.
 // The endpoint can be the AWS region (e.g., "us-east-1") or left empty to use default.
 // The path is the SSM parameter path prefix (e.g., "/myapp/config").
-func NewViperRemoteProvider(ctx context.Context, providerName, endpoint, path string, opts ...LoaderOption) (*ViperRemoteProvider, error) {
+func NewViperRemoteProvider(
+	ctx context.Context, providerName, endpoint, path string,
+	opts ...LoaderOption) (*ViperRemoteProvider, error) {
 	loader, err := NewLoader(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("creating SSM loader: %w", err)

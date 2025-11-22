@@ -2,6 +2,7 @@ package ssmconfig
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -9,15 +10,15 @@ import (
 
 // RefreshingConfig holds a configuration that automatically refreshes from Parameter Store.
 type RefreshingConfig[T any] struct {
-	mu           sync.RWMutex
-	config       *T
-	loader       *Loader
-	prefix       string
+	mu              sync.RWMutex
+	config          *T
+	loader          *Loader
+	prefix          string
 	refreshInterval time.Duration
-	ctx          context.Context
-	cancel       context.CancelFunc
-	wg           sync.WaitGroup
-	onChange     func(oldConfig, newConfig *T)
+	ctx             context.Context
+	cancel          context.CancelFunc
+	wg              sync.WaitGroup
+	onChange        func(oldConfig, newConfig *T)
 }
 
 // RefreshingConfigOption configures a RefreshingConfig.
@@ -39,7 +40,8 @@ func WithOnChange[T any](callback func(oldConfig, newConfig *T)) RefreshingConfi
 }
 
 // LoadWithAutoRefresh loads configuration and starts auto-refreshing it periodically.
-func LoadWithAutoRefresh[T any](ctx context.Context, prefix string, opts ...LoaderOption) (*RefreshingConfig[T], error) {
+func LoadWithAutoRefresh[T any](
+	ctx context.Context, prefix string, opts ...LoaderOption) (*RefreshingConfig[T], error) {
 	loader, err := NewLoader(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -49,7 +51,9 @@ func LoadWithAutoRefresh[T any](ctx context.Context, prefix string, opts ...Load
 }
 
 // LoadWithAutoRefreshAndLoader loads configuration with auto-refresh using an existing Loader.
-func LoadWithAutoRefreshAndLoader[T any](loader *Loader, ctx context.Context, prefix string, opts ...RefreshingConfigOption[T]) (*RefreshingConfig[T], error) {
+func LoadWithAutoRefreshAndLoader[T any](
+	loader *Loader, ctx context.Context, prefix string,
+	opts ...RefreshingConfigOption[T]) (*RefreshingConfig[T], error) {
 	// Initial load
 	config, err := LoadWithLoader[T](loader, ctx, prefix)
 	if err != nil {
@@ -108,11 +112,32 @@ func deepCopy[T any](src *T) (*T, error) {
 		return nil, err
 	}
 
-	return dstVal.Interface().(*T), nil
+	result, ok := dstVal.Interface().(*T)
+	if !ok {
+		return nil, fmt.Errorf("failed to convert to type %T", result)
+	}
+	return result, nil
 }
 
 func copyValue(src, dst reflect.Value) error {
 	switch src.Kind() {
+	case reflect.Invalid:
+		return fmt.Errorf("invalid source value")
+	case reflect.Bool:
+		dst.SetBool(src.Bool())
+		return nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		dst.SetInt(src.Int())
+		return nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		dst.SetUint(src.Uint())
+		return nil
+	case reflect.Float32, reflect.Float64:
+		dst.SetFloat(src.Float())
+		return nil
+	case reflect.String:
+		dst.SetString(src.String())
+		return nil
 	case reflect.Ptr:
 		if src.IsNil() {
 			return nil
@@ -225,4 +250,3 @@ func (rc *RefreshingConfig[T]) start() {
 		}
 	}()
 }
-

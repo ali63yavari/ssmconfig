@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package ssmconfig
@@ -123,4 +124,3 @@ func TestIntegration_AutoRefresh(t *testing.T) {
 	cfg := refreshingConfig.Get()
 	assert.NotNil(t, cfg)
 }
-

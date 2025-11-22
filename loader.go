@@ -104,10 +104,7 @@ func LoadWithLoader[T any](loader *Loader, ctx context.Context, prefix string) (
 	}
 
 	// Load from config files using Viper (if configured)
-	fileValues, err := loader.loadFromFiles()
-	if err != nil {
-		return nil, fmt.Errorf("loading config files: %w", err)
-	}
+	fileValues := loader.loadFromFiles()
 
 	// Merge: Start with SSM values, then overlay file values
 	// File values override SSM values (but ENV will override both in mapToStruct)
@@ -131,14 +128,14 @@ func LoadWithLoader[T any](loader *Loader, ctx context.Context, prefix string) (
 
 // loadFromFiles loads configuration from YAML, JSON, and TOML files using Viper.
 // Returns a flat map[string]string compatible with SSM parameter format.
-func (l *Loader) loadFromFiles() (map[string]string, error) {
+func (l *Loader) loadFromFiles() map[string]string {
 	if len(l.configFiles) == 0 {
-		return make(map[string]string), nil
+		return make(map[string]string)
 	}
 
 	v := viper.New()
 	firstFile := true
-	
+
 	// Load each file
 	for _, filePath := range l.configFiles {
 		if filePath == "" {
@@ -152,7 +149,7 @@ func (l *Loader) loadFromFiles() (map[string]string, error) {
 
 		// Set file path
 		v.SetConfigFile(filePath)
-		
+
 		if firstFile {
 			// Read first config file
 			if err := v.ReadInConfig(); err != nil {
@@ -176,13 +173,13 @@ func (l *Loader) loadFromFiles() (map[string]string, error) {
 	// Convert Viper's nested config to flat map[string]string
 	// Viper uses dot notation (e.g., "database.host"), which matches our SSM format
 	result := make(map[string]string)
-	
+
 	// Get all keys from Viper and convert values to strings
 	keys := v.AllKeys()
 	for _, key := range keys {
 		// Convert Viper's dot notation to SSM slash notation
 		ssmKey := strings.ReplaceAll(key, ".", "/")
-		
+
 		// Get value and convert to string
 		value := v.Get(key)
 		if value != nil {
@@ -191,7 +188,7 @@ func (l *Loader) loadFromFiles() (map[string]string, error) {
 		}
 	}
 
-	return result, nil
+	return result
 }
 
 func (l *Loader) loadByPrefix(ctx context.Context, prefix string) (map[string]string, error) {
@@ -210,7 +207,10 @@ func (l *Loader) loadByPrefixWithCache(ctx context.Context, prefix string, useCa
 		// Update cache with fresh values
 		entryPtr, _ := l.cache.Load(prefix)
 		if entryPtr != nil {
-			entry := entryPtr.(*cacheEntry)
+			entry, ok := entryPtr.(*cacheEntry)
+			if !ok {
+				return nil, fmt.Errorf("invalid cache entry type")
+			}
 			// Make a copy for the cache
 			cachedValues := make(map[string]string, len(result))
 			for k, v := range result {
@@ -237,9 +237,17 @@ func (l *Loader) loadByPrefixWithCache(ctx context.Context, prefix string, useCa
 			values: &atomic.Pointer[map[string]string]{},
 		}
 		actual, _ := l.cache.LoadOrStore(prefix, newEntry)
-		entry = actual.(*cacheEntry)
+		var ok bool
+		entry, ok = actual.(*cacheEntry)
+		if !ok {
+			return nil, fmt.Errorf("invalid cache entry type")
+		}
 	} else {
-		entry = entryPtr.(*cacheEntry)
+		var ok bool
+		entry, ok = entryPtr.(*cacheEntry)
+		if !ok {
+			return nil, fmt.Errorf("invalid cache entry type")
+		}
 	}
 
 	// Check if already cached
@@ -336,7 +344,10 @@ func (l *Loader) InvalidateCache(prefix string) {
 	if prefix == "" {
 		// Clear all cache entries
 		l.cache.Range(func(key, value interface{}) bool {
-			entry := value.(*cacheEntry)
+			entry, ok := value.(*cacheEntry)
+			if !ok {
+				return true
+			}
 			entry.values.Store(nil)
 			// Reset sync.Once by creating a new entry
 			newEntry := &cacheEntry{
@@ -348,7 +359,10 @@ func (l *Loader) InvalidateCache(prefix string) {
 	} else {
 		// Clear specific prefix
 		if entryPtr, ok := l.cache.Load(prefix); ok {
-			entry := entryPtr.(*cacheEntry)
+			entry, ok := entryPtr.(*cacheEntry)
+			if !ok {
+				return
+			}
 			entry.values.Store(nil)
 			// Reset sync.Once by creating a new entry
 			newEntry := &cacheEntry{

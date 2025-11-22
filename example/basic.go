@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -12,9 +13,10 @@ import (
 
 // BasicConfig demonstrates basic usage of ssmconfig.
 // SSM Parameters:
-//   /myapp/database_url = "postgres://localhost:5432/mydb"
-//   /myapp/port = "8080"
-//   /myapp/debug = "true"
+//
+//	/myapp/database_url = "postgres://localhost:5432/mydb"
+//	/myapp/port = "8080"
+//	/myapp/debug = "true"
 type BasicConfig struct {
 	DatabaseURL string `ssm:"database_url" env:"DB_URL" required:"true"`
 	Port        int    `ssm:"port" env:"PORT"`
@@ -34,4 +36,3 @@ func main() {
 	fmt.Printf("Port: %d\n", cfg.Port)
 	fmt.Printf("Debug: %t\n", cfg.Debug)
 }
-

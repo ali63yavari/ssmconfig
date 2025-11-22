@@ -67,10 +67,10 @@ func GetParameterizedValidator(name string) (ParameterizedValidatorFunc, bool) {
 // - A simple name (e.g., "email")
 // - A parameterized validator (e.g., "minlen:5")
 // - Multiple validators comma-separated (e.g., "email,minlen:5,maxlen:100")
-// 
+//
 // For nested structs, this validates the entire struct object.
 // Validators on fields within nested structs are processed recursively.
-func validateField(fv reflect.Value, validatorName string, fieldName string) error {
+func validateField(fv reflect.Value, validatorName, fieldName string) error {
 	if validatorName == "" {
 		return nil
 	}
@@ -288,4 +288,3 @@ func isValidURL(url string) bool {
 	return (len(url) >= 7 && url[0:7] == "http://") ||
 		(len(url) >= 8 && url[0:8] == "https://")
 }
-

@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -26,12 +27,13 @@ type ServerConfig struct {
 
 // NestedConfig demonstrates nested struct support.
 // SSM Parameters:
-//   /myapp/database/host = "localhost"
-//   /myapp/database/port = "5432"
-//   /myapp/database/username = "admin"
-//   /myapp/database/password = "secret"
-//   /myapp/server/host = "0.0.0.0"
-//   /myapp/server/port = "8080"
+//
+//	/myapp/database/host = "localhost"
+//	/myapp/database/port = "5432"
+//	/myapp/database/username = "admin"
+//	/myapp/database/password = "secret"
+//	/myapp/server/host = "0.0.0.0"
+//	/myapp/server/port = "8080"
 type NestedConfig struct {
 	Database DatabaseConfig `ssm:"database" required:"true"`
 	Server   ServerConfig   `ssm:"server" required:"true"`
@@ -48,4 +50,3 @@ func main() {
 	fmt.Printf("Database: %s:%d\n", cfg.Database.Host, cfg.Database.Port)
 	fmt.Printf("Server: %s:%d\n", cfg.Server.Host, cfg.Server.Port)
 }
-

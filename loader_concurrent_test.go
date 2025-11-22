@@ -202,4 +202,3 @@ func TestLoader_LoadByPrefixWithCache_ErrorPath(t *testing.T) {
 		_ = err
 	})
 }
-

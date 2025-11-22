@@ -1,8 +1,10 @@
+//go:build ignore
 // +build ignore
 
 // This example demonstrates Viper integration.
 // To run this example, install Viper first:
-//   go get github.com/spf13/viper
+//
+//	go get github.com/spf13/viper
 package main
 
 import (
@@ -16,10 +18,11 @@ import (
 
 // ViperConfig demonstrates integration with Viper.
 // SSM Parameters:
-//   /myapp/database.url = "postgres://localhost:5432/mydb"
-//   /myapp/database.port = "5432"
-//   /myapp/server.host = "0.0.0.0"
-//   /myapp/server.port = "8080"
+//
+//	/myapp/database.url = "postgres://localhost:5432/mydb"
+//	/myapp/database.port = "5432"
+//	/myapp/server.host = "0.0.0.0"
+//	/myapp/server.port = "8080"
 func main() {
 	ctx := context.Background()
 
@@ -60,4 +63,3 @@ func main() {
 	// Use Viper
 	fmt.Printf("Server Host (from Viper): %s\n", viper.GetString("server.host"))
 }
-

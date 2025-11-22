@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -33,13 +34,14 @@ type LoggingConfig struct {
 
 // AdvancedNestedConfig shows multiple levels of nesting.
 // SSM Parameters:
-//   /myapp/database/host = "db.example.com"
-//   /myapp/database/port = "5432"
-//   /myapp/database/ssl = "true"
-//   /myapp/database/replicas = `["replica1.example.com","replica2.example.com"]`
-//   /myapp/cache/redis = `{"host":"redis.example.com","port":6379,"db":0}`
-//   /myapp/logging/level = "info"
-//   /myapp/logging/format = "json"
+//
+//	/myapp/database/host = "db.example.com"
+//	/myapp/database/port = "5432"
+//	/myapp/database/ssl = "true"
+//	/myapp/database/replicas = `["replica1.example.com","replica2.example.com"]`
+//	/myapp/cache/redis = `{"host":"redis.example.com","port":6379,"db":0}`
+//	/myapp/logging/level = "info"
+//	/myapp/logging/format = "json"
 type AdvancedNestedConfig struct {
 	Database DatabaseConfig `ssm:"database" required:"true"`
 	Cache    CacheConfig    `ssm:"cache" required:"true"`
@@ -66,4 +68,3 @@ func main() {
 		cfg.Cache.Redis.Host, cfg.Cache.Redis.Port, cfg.Cache.Redis.DB)
 	fmt.Printf("Logging: %s (%s)\n", cfg.Logging.Level, cfg.Logging.Format)
 }
-

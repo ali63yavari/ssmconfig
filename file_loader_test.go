@@ -57,8 +57,7 @@ func TestLoader_LoadFromFiles(t *testing.T) {
 		loader, err := NewLoader(ctx)
 		require.NoError(t, err)
 
-		values, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		values := loader.loadFromFiles()
 		assert.Empty(t, values)
 	})
 
@@ -74,8 +73,7 @@ func TestLoader_LoadFromFiles(t *testing.T) {
 		loader, err := NewLoader(ctx, WithConfigFiles("nonexistent.yaml"))
 		require.NoError(t, err)
 
-		values, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		values := loader.loadFromFiles()
 		assert.Empty(t, values)
 	})
 
@@ -104,8 +102,7 @@ server:
 		loader, err := NewLoader(ctx, WithConfigFiles(yamlFile))
 		require.NoError(t, err)
 
-		values, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		values := loader.loadFromFiles()
 		assert.Equal(t, "postgres://localhost:5432/mydb", values["database/url"])
 		assert.Equal(t, "5432", values["database/port"])
 		assert.Equal(t, "0.0.0.0", values["server/host"])
@@ -139,8 +136,7 @@ server:
 		loader, err := NewLoader(ctx, WithConfigFiles(jsonFile))
 		require.NoError(t, err)
 
-		values, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		values := loader.loadFromFiles()
 		assert.Equal(t, "postgres://localhost:5432/mydb", values["database/url"])
 		assert.Equal(t, "5432", values["database/port"])
 	})
@@ -171,8 +167,7 @@ port = 8080
 		loader, err := NewLoader(ctx, WithConfigFiles(tomlFile))
 		require.NoError(t, err)
 
-		values, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		values := loader.loadFromFiles()
 		assert.Equal(t, "postgres://localhost:5432/mydb", values["database/url"])
 		assert.Equal(t, "5432", values["database/port"])
 	})
@@ -181,7 +176,7 @@ port = 8080
 		tmpDir := t.TempDir()
 		file1 := filepath.Join(tmpDir, "config1.yaml")
 		file2 := filepath.Join(tmpDir, "config2.yaml")
-		
+
 		err := os.WriteFile(file1, []byte(`
 database:
   url: "file1-url"
@@ -206,8 +201,7 @@ database:
 		loader, err := NewLoader(ctx, WithConfigFiles(file1, file2))
 		require.NoError(t, err)
 
-		values, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		values := loader.loadFromFiles()
 		// file2 should override file1
 		assert.Equal(t, "file2-url", values["database/url"])
 		// port from file1 should still be present
@@ -235,9 +229,8 @@ database:
 		loader, err := NewLoader(ctx, WithConfigFiles(invalidFile), WithLogger(logger))
 		require.NoError(t, err)
 
-		values, err := loader.loadFromFiles()
+		values := loader.loadFromFiles()
 		// Should not error, just skip invalid file
-		require.NoError(t, err)
 		assert.Empty(t, values)
 		assert.Len(t, loggedMessages, 1)
 	})
@@ -300,8 +293,7 @@ database:
 		loader, err := NewLoader(ctx, WithConfigFiles(yamlFile))
 		require.NoError(t, err)
 
-		fileValues, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		fileValues := loader.loadFromFiles()
 		assert.Equal(t, "file-url", fileValues["database/url"])
 
 		// In actual usage, ENV would override this in mapToStruct
@@ -335,8 +327,7 @@ value: "file-value"
 
 		// Simulate SSM values
 		ssmValues := map[string]string{"value": "ssm-value"}
-		fileValues, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		fileValues := loader.loadFromFiles()
 
 		// Merge: file should override SSM
 		merged := make(map[string]string)
@@ -391,8 +382,7 @@ server:
 		require.NoError(t, err)
 
 		// Load from file
-		fileValues, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		fileValues := loader.loadFromFiles()
 
 		// Verify file values are loaded correctly
 		assert.Equal(t, "localhost", fileValues["database/host"])
@@ -442,8 +432,7 @@ server:
 		loader, err := NewLoader(ctx, WithConfigFiles(jsonFile))
 		require.NoError(t, err)
 
-		fileValues, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		fileValues := loader.loadFromFiles()
 
 		var cfg Config
 		err = mapToStruct(fileValues, &cfg, false, nil, true)
@@ -491,8 +480,7 @@ app:
 		loader, err := NewLoader(ctx, WithConfigFiles(yamlFile))
 		require.NoError(t, err)
 
-		fileValues, err := loader.loadFromFiles()
-		require.NoError(t, err)
+		fileValues := loader.loadFromFiles()
 
 		var cfg Config
 		err = mapToStruct(fileValues, &cfg, false, nil, true)
@@ -504,4 +492,3 @@ app:
 		assert.Equal(t, 8080, cfg.App.Server.Port)
 	})
 }
-

@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -104,4 +105,3 @@ func main() {
 		ssmconfig.WithStrongTyping(false))
 	fmt.Printf("Port2 (JSON): %d\n", cfg5.Port2)
 }
-

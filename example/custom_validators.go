@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -14,10 +15,11 @@ import (
 
 // ValidatedConfig demonstrates custom validators.
 // SSM Parameters:
-//   /myapp/email = "user@example.com"
-//   /myapp/website = "https://example.com"
-//   /myapp/username = "alice123"
-//   /myapp/port = "8080"
+//
+//	/myapp/email = "user@example.com"
+//	/myapp/website = "https://example.com"
+//	/myapp/username = "alice123"
+//	/myapp/port = "8080"
 type ValidatedConfig struct {
 	Email    string `ssm:"email" validate:"email"`
 	Website  string `ssm:"website" validate:"url"`
@@ -89,4 +91,3 @@ func registerCustomValidators() {
 		return nil
 	})
 }
-

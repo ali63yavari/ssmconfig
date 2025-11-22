@@ -120,11 +120,8 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 			prefix := ""
 			if ssmTag != "" {
 				prefix = ssmTag
-			} else if envTag != "" {
-				// For nested structs without ssm tag, use field name as prefix
-				prefix = strings.ToLower(field.Name)
 			} else {
-				// No tags - use field name as prefix for nested struct
+				// For nested structs without ssm tag, use field name as prefix
 				prefix = strings.ToLower(field.Name)
 			}
 
@@ -182,7 +179,7 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 		// Since file values are merged into values, we need to distinguish them
 		// For now, we'll check values map which contains both SSM and file values
 		// The file values will be checked before pure SSM values in the next step
-		
+
 		// Priority 3: Fall back to SSM parameter or file value (lowest priority)
 		// Note: values map now contains both SSM and file values (file values override SSM)
 		if !hasValue && ssmTag != "" {
@@ -226,10 +223,12 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 				// suggest using json:"true" tag or setting useStrongTyping=false
 				kind := fv.Kind()
 				if kind == reflect.Slice && fv.Type().Elem().Kind() != reflect.String {
-					return fmt.Errorf("setting field %s: %w (hint: use json:\"true\" tag or set useStrongTyping=false)", field.Name, err)
+					return fmt.Errorf("setting field %s: %w (hint: use json:\"true\" tag or "+
+						"set useStrongTyping=false)", field.Name, err)
 				}
 				if kind == reflect.Map {
-					return fmt.Errorf("setting field %s: %w (hint: use json:\"true\" tag or set useStrongTyping=false)", field.Name, err)
+					return fmt.Errorf("setting field %s: %w (hint: use json:\"true\" tag or "+
+						"set useStrongTyping=false)", field.Name, err)
 				}
 				return fmt.Errorf("setting field %s: %w", field.Name, err)
 			}
@@ -352,6 +351,8 @@ func setFieldValue(fv reflect.Value, val string) error {
 	kind := fv.Kind()
 
 	switch kind {
+	case reflect.Invalid:
+		return fmt.Errorf("invalid field kind")
 	case reflect.String:
 		fv.SetString(val)
 
@@ -362,6 +363,8 @@ func setFieldValue(fv reflect.Value, val string) error {
 		}
 		// Check bounds for specific int types
 		switch kind {
+		case reflect.Int, reflect.Int64:
+			// No bounds check needed
 		case reflect.Int8:
 			if intVal > 127 || intVal < -128 {
 				return fmt.Errorf("value %d out of range for int8", intVal)

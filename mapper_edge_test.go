@@ -16,7 +16,7 @@ func TestMapToStruct_AnonymousFields(t *testing.T) {
 		}
 
 		type Config struct {
-			BaseConfig // Anonymous field - fields are promoted
+			BaseConfig     // Anonymous field - fields are promoted
 			Port       int `ssm:"port"`
 		}
 
@@ -267,4 +267,3 @@ func TestIsRequiredField(t *testing.T) {
 		assert.False(t, isRequiredField("no"))
 	})
 }
-

@@ -148,4 +148,3 @@ func TestLoader_LoadFromSSM(t *testing.T) {
 		_ = err
 	})
 }
-

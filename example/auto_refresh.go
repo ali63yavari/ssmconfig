@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -65,4 +66,3 @@ func main() {
 		fmt.Printf("Config copy: %+v\n", cfgCopy)
 	}
 }
-

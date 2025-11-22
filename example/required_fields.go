@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -12,8 +13,9 @@ import (
 
 // RequiredConfig demonstrates required field validation.
 // SSM Parameters (some may be missing):
-//   /myapp/api_key = "secret-key-123"
-//   /myapp/optional_field = "optional-value"
+//
+//	/myapp/api_key = "secret-key-123"
+//	/myapp/optional_field = "optional-value"
 type RequiredConfig struct {
 	APIKey        string `ssm:"api_key" env:"API_KEY" required:"true"`
 	OptionalField string `ssm:"optional_field" env:"OPTIONAL_FIELD"`
@@ -54,4 +56,3 @@ func main() {
 		fmt.Printf("Config loaded: %+v\n", cfg3)
 	}
 }
-

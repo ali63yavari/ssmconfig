@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -12,9 +13,10 @@ import (
 
 // JSONConfig demonstrates JSON decoding from SSM Parameter Store.
 // SSM Parameters:
-//   /myapp/database = `{"host":"localhost","port":5432,"ssl":true}`
-//   /myapp/servers = `[{"name":"api","port":8080},{"name":"web","port":80}]`
-//   /myapp/metadata = `{"env":"prod","region":"us-east-1"}`
+//
+//	/myapp/database = `{"host":"localhost","port":5432,"ssl":true}`
+//	/myapp/servers = `[{"name":"api","port":8080},{"name":"web","port":80}]`
+//	/myapp/metadata = `{"env":"prod","region":"us-east-1"}`
 type JSONConfig struct {
 	// Nested struct from JSON
 	Database struct {
@@ -48,4 +50,3 @@ func main() {
 	}
 	fmt.Printf("Metadata: %v\n", cfg.Metadata)
 }
-

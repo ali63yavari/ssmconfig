@@ -115,7 +115,7 @@ func TestRefreshingConfig_GetCopy(t *testing.T) {
 			cancel: cancel,
 		}
 
-		copy, err := rc.GetCopy()
+		cfgCopy, err := rc.GetCopy()
 		require.NoError(t, err)
 		assert.Equal(t, "test", copy.Value)
 
@@ -156,7 +156,7 @@ func TestRefreshingConfig_Stop(t *testing.T) {
 		}
 
 		rc.Stop()
-		// Context should be cancelled
+		// Context should be canceled
 		assert.Error(t, rc.ctx.Err())
 	})
 }
@@ -216,11 +216,11 @@ func TestRefreshingConfig_Refresh(t *testing.T) {
 		}
 
 		rc := &RefreshingConfig[Config]{
-			config: cfg,
-			loader: loader,
-			prefix: "/test/",
-			ctx:    ctx,
-			cancel: cancel,
+			config:   cfg,
+			loader:   loader,
+			prefix:   "/test/",
+			ctx:      ctx,
+			cancel:   cancel,
 			onChange: callback,
 		}
 

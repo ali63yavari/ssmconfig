@@ -259,4 +259,3 @@ func TestCustomValidators(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
-

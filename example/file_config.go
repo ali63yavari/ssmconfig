@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 package main
@@ -15,25 +16,28 @@ import (
 // Priority: ENV > File > SSM
 //
 // Example config.yaml:
-//   database:
-//     url: "postgres://localhost:5432/mydb"
-//     port: 5432
-//   server:
-//     host: "0.0.0.0"
-//     port: 8080
+//
+//	database:
+//	  url: "postgres://localhost:5432/mydb"
+//	  port: 5432
+//	server:
+//	  host: "0.0.0.0"
+//	  port: 8080
 //
 // Example config.json:
-//   {
-//     "database": {
-//       "url": "postgres://localhost:5432/mydb",
-//       "port": 5432
-//     }
-//   }
+//
+//	{
+//	  "database": {
+//	    "url": "postgres://localhost:5432/mydb",
+//	    "port": 5432
+//	  }
+//	}
 //
 // Example config.toml:
-//   [database]
-//   url = "postgres://localhost:5432/mydb"
-//   port = 5432
+//
+//	[database]
+//	url = "postgres://localhost:5432/mydb"
+//	port = 5432
 type FileConfig struct {
 	Database struct {
 		URL  string `ssm:"database/url" env:"DB_URL"`
@@ -104,4 +108,3 @@ func main() {
 		fmt.Printf("Database URL: %s (from ENV)\n", cfg5.Database.URL)
 	}
 }
-

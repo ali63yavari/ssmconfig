@@ -204,15 +204,21 @@ func TestLoader_InvalidateCache(t *testing.T) {
 	})
 }
 
+func setupTestEnv(t *testing.T) {
+	t.Helper()
+	os.Setenv("AWS_REGION", "us-east-1")
+	os.Setenv("AWS_ACCESS_KEY_ID", "test")
+	os.Setenv("AWS_SECRET_ACCESS_KEY", "test")
+	t.Cleanup(func() {
+		os.Unsetenv("AWS_REGION")
+		os.Unsetenv("AWS_ACCESS_KEY_ID")
+		os.Unsetenv("AWS_SECRET_ACCESS_KEY")
+	})
+}
+
 func TestWithStrictMode(t *testing.T) {
 	t.Run("sets strict mode", func(t *testing.T) {
-		os.Setenv("AWS_REGION", "us-east-1")
-		os.Setenv("AWS_ACCESS_KEY_ID", "test")
-		os.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-		defer os.Unsetenv("AWS_REGION")
-		defer os.Unsetenv("AWS_ACCESS_KEY_ID")
-		defer os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-
+		setupTestEnv(t)
 		ctx := context.Background()
 		loader, err := NewLoader(ctx, WithStrictMode(true))
 		require.NoError(t, err)
@@ -220,13 +226,7 @@ func TestWithStrictMode(t *testing.T) {
 	})
 
 	t.Run("disables strict mode", func(t *testing.T) {
-		os.Setenv("AWS_REGION", "us-east-1")
-		os.Setenv("AWS_ACCESS_KEY_ID", "test")
-		os.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-		defer os.Unsetenv("AWS_REGION")
-		defer os.Unsetenv("AWS_ACCESS_KEY_ID")
-		defer os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-
+		setupTestEnv(t)
 		ctx := context.Background()
 		loader, err := NewLoader(ctx, WithStrictMode(false))
 		require.NoError(t, err)
@@ -236,13 +236,7 @@ func TestWithStrictMode(t *testing.T) {
 
 func TestWithLogger(t *testing.T) {
 	t.Run("sets custom logger", func(t *testing.T) {
-		os.Setenv("AWS_REGION", "us-east-1")
-		os.Setenv("AWS_ACCESS_KEY_ID", "test")
-		os.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-		defer os.Unsetenv("AWS_REGION")
-		defer os.Unsetenv("AWS_ACCESS_KEY_ID")
-		defer os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-
+		setupTestEnv(t)
 		ctx := context.Background()
 		var loggedMessages []string
 		logger := func(format string, args ...interface{}) {
@@ -261,13 +255,7 @@ func TestWithLogger(t *testing.T) {
 
 func TestWithStrongTyping(t *testing.T) {
 	t.Run("enables strong typing", func(t *testing.T) {
-		os.Setenv("AWS_REGION", "us-east-1")
-		os.Setenv("AWS_ACCESS_KEY_ID", "test")
-		os.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-		defer os.Unsetenv("AWS_REGION")
-		defer os.Unsetenv("AWS_ACCESS_KEY_ID")
-		defer os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-
+		setupTestEnv(t)
 		ctx := context.Background()
 		loader, err := NewLoader(ctx, WithStrongTyping(true))
 		require.NoError(t, err)
@@ -275,13 +263,7 @@ func TestWithStrongTyping(t *testing.T) {
 	})
 
 	t.Run("disables strong typing", func(t *testing.T) {
-		os.Setenv("AWS_REGION", "us-east-1")
-		os.Setenv("AWS_ACCESS_KEY_ID", "test")
-		os.Setenv("AWS_SECRET_ACCESS_KEY", "test")
-		defer os.Unsetenv("AWS_REGION")
-		defer os.Unsetenv("AWS_ACCESS_KEY_ID")
-		defer os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-
+		setupTestEnv(t)
 		ctx := context.Background()
 		loader, err := NewLoader(ctx, WithStrongTyping(false))
 		require.NoError(t, err)
