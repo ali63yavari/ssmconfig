@@ -1,5 +1,10 @@
 # ssmconfig
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ali63yavari/ssmconfig.svg)](https://pkg.go.dev/github.com/ali63yavari/ssmconfig)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ali63yavari/ssmconfig)](https://goreportcard.com/report/github.com/ali63yavari/ssmconfig)
+[![CI](https://github.com/ali63yavari/ssmconfig/actions/workflows/ci.yml/badge.svg)](https://github.com/ali63yavari/ssmconfig/actions/workflows/ci.yml)
+
 A powerful, type-safe Go library for loading configuration from AWS Systems Manager (SSM) Parameter Store, with support for environment variable overrides, file-based configuration, auto-refresh, custom validators, and more.
 
 ## Table of Contents
