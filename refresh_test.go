@@ -117,7 +117,7 @@ func TestRefreshingConfig_GetCopy(t *testing.T) {
 
 		cfgCopy, err := rc.GetCopy()
 		require.NoError(t, err)
-		assert.Equal(t, "test", copy.Value)
+		assert.Equal(t, "test", cfgCopy.Value)
 
 		// Modify original
 		rc.mu.Lock()
@@ -125,7 +125,7 @@ func TestRefreshingConfig_GetCopy(t *testing.T) {
 		rc.mu.Unlock()
 
 		// Copy should be unchanged
-		assert.Equal(t, "test", copy.Value)
+		assert.Equal(t, "test", cfgCopy.Value)
 	})
 }
 
