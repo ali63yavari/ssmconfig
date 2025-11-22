@@ -175,7 +175,11 @@ func copyValue(src, dst reflect.Value) error {
 }
 
 // Refresh manually triggers a refresh of the configuration.
+// This bypasses the cache to ensure fresh values are loaded from SSM.
 func (rc *RefreshingConfig[T]) Refresh() error {
+	// Invalidate cache first to ensure we get fresh values
+	rc.loader.InvalidateCache(rc.prefix)
+
 	newConfig, err := LoadWithLoader[T](rc.loader, rc.ctx, rc.prefix)
 	if err != nil {
 		return err

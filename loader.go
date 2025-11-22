@@ -4,15 +4,23 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
+type cacheEntry struct {
+	values *atomic.Pointer[map[string]string]
+	once   sync.Once
+}
+
 type Loader struct {
 	ssmClient *ssm.Client
 	strict    bool
 	logger    func(format string, args ...interface{})
+	cache     sync.Map // map[string]*cacheEntry
 }
 
 type LoaderOption func(*Loader)
@@ -79,6 +87,110 @@ func LoadWithLoader[T any](loader *Loader, ctx context.Context, prefix string) (
 }
 
 func (l *Loader) loadByPrefix(ctx context.Context, prefix string) (map[string]string, error) {
+	return l.loadByPrefixWithCache(ctx, prefix, true)
+}
+
+// loadByPrefixWithCache loads parameters with optional cache bypass.
+func (l *Loader) loadByPrefixWithCache(ctx context.Context, prefix string, useCache bool) (map[string]string, error) {
+	// If not using cache, load fresh and update cache
+	if !useCache {
+		result, err := l.loadFromSSM(ctx, prefix)
+		if err != nil {
+			return nil, err
+		}
+
+		// Update cache with fresh values
+		entryPtr, _ := l.cache.Load(prefix)
+		if entryPtr != nil {
+			entry := entryPtr.(*cacheEntry)
+			// Make a copy for the cache
+			cachedValues := make(map[string]string, len(result))
+			for k, v := range result {
+				cachedValues[k] = v
+			}
+			entry.values.Store(&cachedValues)
+		}
+
+		// Return a copy
+		resultCopy := make(map[string]string, len(result))
+		for k, v := range result {
+			resultCopy[k] = v
+		}
+		return resultCopy, nil
+	}
+
+	// Use cache - get or create cache entry for this prefix
+	entryPtr, _ := l.cache.Load(prefix)
+	var entry *cacheEntry
+
+	if entryPtr == nil {
+		// Create new cache entry with atomic pointer for values
+		newEntry := &cacheEntry{
+			values: &atomic.Pointer[map[string]string]{},
+		}
+		actual, _ := l.cache.LoadOrStore(prefix, newEntry)
+		entry = actual.(*cacheEntry)
+	} else {
+		entry = entryPtr.(*cacheEntry)
+	}
+
+	// Check if already cached
+	cachedValues := entry.values.Load()
+	if cachedValues != nil {
+		// Return a copy to avoid race conditions
+		result := make(map[string]string, len(*cachedValues))
+		for k, v := range *cachedValues {
+			result[k] = v
+		}
+		return result, nil
+	}
+
+	// Cache miss - load from SSM using sync.Once to ensure only one load per prefix
+	var result map[string]string
+	var loadErr error
+
+	entry.once.Do(func() {
+		result, loadErr = l.loadFromSSM(ctx, prefix)
+		if loadErr == nil {
+			// Make a copy for the cache
+			cachedValues := make(map[string]string, len(result))
+			for k, v := range result {
+				cachedValues[k] = v
+			}
+			// Store in cache using atomic pointer
+			entry.values.Store(&cachedValues)
+		}
+	})
+
+	if loadErr != nil {
+		return nil, loadErr
+	}
+
+	// If we loaded successfully, result is already set
+	// Otherwise, try to get from cache (another goroutine might have loaded it)
+	if result == nil {
+		cachedValues := entry.values.Load()
+		if cachedValues != nil {
+			result = make(map[string]string, len(*cachedValues))
+			for k, v := range *cachedValues {
+				result[k] = v
+			}
+			return result, nil
+		}
+		return nil, fmt.Errorf("failed to load parameters for prefix: %s", prefix)
+	}
+
+	// Return a copy
+	resultCopy := make(map[string]string, len(result))
+	for k, v := range result {
+		resultCopy[k] = v
+	}
+
+	return resultCopy, nil
+}
+
+// loadFromSSM performs the actual SSM API call to load parameters.
+func (l *Loader) loadFromSSM(ctx context.Context, prefix string) (map[string]string, error) {
 	out := make(map[string]string)
 
 	var nextToken *string
@@ -107,4 +219,34 @@ func (l *Loader) loadByPrefix(ctx context.Context, prefix string) (map[string]st
 	}
 
 	return out, nil
+}
+
+// InvalidateCache clears the cache for a specific prefix.
+// If prefix is empty, clears all cached entries.
+// After invalidation, the next call to loadByPrefix will reload from SSM.
+func (l *Loader) InvalidateCache(prefix string) {
+	if prefix == "" {
+		// Clear all cache entries
+		l.cache.Range(func(key, value interface{}) bool {
+			entry := value.(*cacheEntry)
+			entry.values.Store(nil)
+			// Reset sync.Once by creating a new entry
+			newEntry := &cacheEntry{
+				values: &atomic.Pointer[map[string]string]{},
+			}
+			l.cache.Store(key, newEntry)
+			return true
+		})
+	} else {
+		// Clear specific prefix
+		if entryPtr, ok := l.cache.Load(prefix); ok {
+			entry := entryPtr.(*cacheEntry)
+			entry.values.Store(nil)
+			// Reset sync.Once by creating a new entry
+			newEntry := &cacheEntry{
+				values: &atomic.Pointer[map[string]string]{},
+			}
+			l.cache.Store(prefix, newEntry)
+		}
+	}
 }

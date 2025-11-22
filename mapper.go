@@ -25,12 +25,53 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 		envTag := field.Tag.Get("env")
 		requiredTag := field.Tag.Get("required")
 
-		if ssmTag == "" && envTag == "" {
+		fv := v.Field(i)
+		if !fv.CanSet() {
 			continue
 		}
 
-		fv := v.Field(i)
-		if !fv.CanSet() {
+		// Handle nested structs (with or without tags)
+		fieldType := field.Type
+		if fieldType.Kind() == reflect.Ptr {
+			fieldType = fieldType.Elem()
+		}
+
+		if fieldType.Kind() == reflect.Struct {
+			// Nested struct - recursively map it
+			var nestedPtr interface{}
+			if fv.Kind() == reflect.Ptr {
+				if fv.IsNil() {
+					// Create new instance if pointer is nil
+					fv.Set(reflect.New(fieldType))
+				}
+				nestedPtr = fv.Interface()
+			} else {
+				// Get address of struct field for recursive call
+				nestedPtr = fv.Addr().Interface()
+			}
+
+			// Recursively map nested struct with prefix
+			prefix := ""
+			if ssmTag != "" {
+				prefix = ssmTag
+			} else if envTag != "" {
+				// For nested structs without ssm tag, use field name as prefix
+				prefix = strings.ToLower(field.Name)
+			} else {
+				// No tags - use field name as prefix for nested struct
+				prefix = strings.ToLower(field.Name)
+			}
+
+			// Filter values with the prefix for nested struct
+			nestedValues := filterValuesByPrefix(values, prefix)
+			if err := mapToStruct(nestedValues, nestedPtr, strict, logger); err != nil {
+				return fmt.Errorf("mapping nested struct field %s: %w", field.Name, err)
+			}
+			continue
+		}
+
+		// Handle regular (non-struct) fields
+		if ssmTag == "" && envTag == "" {
 			continue
 		}
 
@@ -85,6 +126,32 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 
 func isRequiredField(requiredTag string) bool {
 	return requiredTag == "true" || requiredTag == "1" || requiredTag == "yes"
+}
+
+// filterValuesByPrefix filters the values map to only include keys that start with the given prefix.
+// The prefix is removed from the keys in the returned map.
+// Example: prefix="database", key="database/host" -> "host" in result
+func filterValuesByPrefix(values map[string]string, prefix string) map[string]string {
+	if prefix == "" {
+		return values
+	}
+
+	result := make(map[string]string)
+	prefixWithSlash := prefix + "/"
+
+	for key, value := range values {
+		// Check if key starts with prefix (with or without slash)
+		if strings.HasPrefix(key, prefixWithSlash) {
+			// Remove prefix and leading slash
+			newKey := strings.TrimPrefix(key, prefixWithSlash)
+			result[newKey] = value
+		} else if key == prefix {
+			// Exact match - include as empty key (root level)
+			result[""] = value
+		}
+	}
+
+	return result
 }
 
 func setFieldValue(fv reflect.Value, val string) error {

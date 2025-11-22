@@ -11,15 +11,15 @@ import (
 // ViperRemoteProvider implements Viper's remote provider interface for AWS SSM Parameter Store.
 // This allows ssmconfig to be used as a remote provider with Viper.
 type ViperRemoteProvider struct {
-	providerName string
-	endpoint     string
-	path         string
+	providerName  string
+	endpoint      string
+	path          string
 	secretKeyring string
-	loader       *Loader
-	mu           sync.RWMutex
-	values       map[string]string
-	ctx          context.Context
-	cancel       context.CancelFunc
+	loader        *Loader
+	mu            sync.RWMutex
+	values        map[string]string
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 // Provider returns the provider name for Viper.
@@ -50,7 +50,7 @@ func (v *ViperRemoteProvider) Get(key string) (string, error) {
 
 	// Convert Viper key (dot notation) to SSM path format
 	ssmKey := v.convertKeyToSSMPath(key)
-	
+
 	if val, ok := v.values[ssmKey]; ok {
 		return val, nil
 	}
@@ -83,7 +83,11 @@ func (v *ViperRemoteProvider) WatchRemoteProviderOnChannel() error {
 }
 
 // refresh reloads all parameters from SSM Parameter Store.
+// This bypasses the cache to ensure fresh values are loaded.
 func (v *ViperRemoteProvider) refresh() error {
+	// Invalidate cache first to ensure we get fresh values
+	v.loader.InvalidateCache(v.path)
+
 	values, err := v.loader.loadByPrefix(v.ctx, v.path)
 	if err != nil {
 		return fmt.Errorf("refreshing SSM parameters: %w", err)
@@ -102,7 +106,7 @@ func (v *ViperRemoteProvider) convertKeyToSSMPath(key string) string {
 	// Remove the path prefix if it's already included
 	key = strings.TrimPrefix(key, v.path)
 	key = strings.TrimPrefix(key, "/")
-	
+
 	// Convert dot notation to slash notation
 	return strings.ReplaceAll(key, ".", "/")
 }
@@ -160,14 +164,15 @@ func WithViperSecretKeyring(keyring string) ViperRemoteProviderOption {
 // This is a helper function that can be used to populate Viper with SSM values.
 // The keys are converted from SSM path format (with slashes) to Viper dot notation.
 // Example usage with Viper:
-//   values, err := ssmconfig.ReadRemoteConfig(ctx, "/myapp/config")
-//   if err != nil {
-//       log.Fatal(err)
-//   }
-//   for key, value := range values {
-//       viper.Set(key, value)
-//   }
-//   // Or use viper.MergeConfigMap(values)
+//
+//	values, err := ssmconfig.ReadRemoteConfig(ctx, "/myapp/config")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	for key, value := range values {
+//	    viper.Set(key, value)
+//	}
+//	// Or use viper.MergeConfigMap(values)
 func ReadRemoteConfig(ctx context.Context, prefix string, opts ...LoaderOption) (map[string]interface{}, error) {
 	loader, err := NewLoader(ctx, opts...)
 	if err != nil {
@@ -213,4 +218,3 @@ func (v *ViperRemoteProvider) GetViperValues() map[string]interface{} {
 
 	return result
 }
-
