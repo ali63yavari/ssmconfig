@@ -17,10 +17,11 @@ type cacheEntry struct {
 }
 
 type Loader struct {
-	ssmClient *ssm.Client
-	strict    bool
-	logger    func(format string, args ...interface{})
-	cache     sync.Map // map[string]*cacheEntry
+	ssmClient       *ssm.Client
+	strict          bool
+	logger          func(format string, args ...interface{})
+	cache           sync.Map // map[string]*cacheEntry
+	useStrongTyping bool     // If true, use strongly-typed conversion; if false, prefer JSON decoding
 }
 
 type LoaderOption func(*Loader)
@@ -41,6 +42,15 @@ func WithLogger(logger func(format string, args ...interface{})) LoaderOption {
 	}
 }
 
+// WithStrongTyping controls whether to use strongly-typed conversion or prefer JSON decoding.
+// If true (default), uses strongly-typed conversion for simple types (int, string, bool, etc.).
+// If false, prefers JSON decoding for all types. The json:"true" tag on fields always takes precedence.
+func WithStrongTyping(useStrongTyping bool) LoaderOption {
+	return func(l *Loader) {
+		l.useStrongTyping = useStrongTyping
+	}
+}
+
 func NewLoader(ctx context.Context, opts ...LoaderOption) (*Loader, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -48,9 +58,10 @@ func NewLoader(ctx context.Context, opts ...LoaderOption) (*Loader, error) {
 	}
 
 	loader := &Loader{
-		ssmClient: ssm.NewFromConfig(cfg),
-		strict:    false,
-		logger:    nil,
+		ssmClient:       ssm.NewFromConfig(cfg),
+		strict:          false,
+		logger:          nil,
+		useStrongTyping: true, // Default to strongly-typed conversion
 	}
 
 	for _, opt := range opts {
@@ -79,7 +90,7 @@ func LoadWithLoader[T any](loader *Loader, ctx context.Context, prefix string) (
 	}
 
 	var result T
-	if err := mapToStruct(values, &result, loader.strict, loader.logger); err != nil {
+	if err := mapToStruct(values, &result, loader.strict, loader.logger, loader.useStrongTyping); err != nil {
 		return nil, fmt.Errorf("mapping to struct: %w", err)
 	}
 

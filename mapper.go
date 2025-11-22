@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func mapToStruct(values map[string]string, dest interface{}, strict bool, logger func(format string, args ...interface{})) error {
+func mapToStruct(values map[string]string, dest interface{}, strict bool, logger func(format string, args ...interface{}), useStrongTyping bool) error {
 	v := reflect.ValueOf(dest)
 	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
 		return fmt.Errorf("dest must be a pointer to struct")
@@ -121,7 +121,7 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 
 			// Filter values with the prefix for nested struct
 			nestedValues := filterValuesByPrefix(values, prefix)
-			if err := mapToStruct(nestedValues, nestedPtr, strict, logger); err != nil {
+			if err := mapToStruct(nestedValues, nestedPtr, strict, logger, useStrongTyping); err != nil {
 				return fmt.Errorf("mapping nested struct field %s: %w", field.Name, err)
 			}
 			continue
@@ -165,8 +165,16 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 			continue
 		}
 
-		// Check if JSON decoding is requested
-		if jsonTag == "true" || jsonTag == "1" || jsonTag == "yes" {
+		// Determine whether to use JSON decoding or strongly-typed conversion
+		// Priority: json tag > loader preference
+		useJSON := jsonTag == "true" || jsonTag == "1" || jsonTag == "yes"
+
+		if !useJSON {
+			// No explicit JSON tag - use loader's preference
+			useJSON = !useStrongTyping
+		}
+
+		if useJSON {
 			// Use JSON decoding - requires valid JSON format
 			if err := setFieldValueJSON(fv, val); err != nil {
 				return fmt.Errorf("decoding JSON for field %s: %w", field.Name, err)
@@ -176,13 +184,13 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 			// For complex types (non-string slices, maps), JSON decoding is required
 			if err := setFieldValue(fv, val); err != nil {
 				// If strongly typed conversion fails and it's a complex type,
-				// suggest using json:"true" tag
+				// suggest using json:"true" tag or setting useStrongTyping=false
 				kind := fv.Kind()
 				if kind == reflect.Slice && fv.Type().Elem().Kind() != reflect.String {
-					return fmt.Errorf("setting field %s: %w (hint: use json:\"true\" tag for non-string slices)", field.Name, err)
+					return fmt.Errorf("setting field %s: %w (hint: use json:\"true\" tag or set useStrongTyping=false)", field.Name, err)
 				}
 				if kind == reflect.Map {
-					return fmt.Errorf("setting field %s: %w (hint: use json:\"true\" tag for maps)", field.Name, err)
+					return fmt.Errorf("setting field %s: %w (hint: use json:\"true\" tag or set useStrongTyping=false)", field.Name, err)
 				}
 				return fmt.Errorf("setting field %s: %w", field.Name, err)
 			}
