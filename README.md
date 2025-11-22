@@ -682,6 +682,3 @@ This project is licensed under the MIT License.
 For issues, questions, or contributions, please open an issue on GitHub.
 
 ---
-
-**Made with ❤️ for the Go community**
-
