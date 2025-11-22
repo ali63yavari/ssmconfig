@@ -1,6 +1,7 @@
 package ssmconfig
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -24,6 +25,7 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 		ssmTag := field.Tag.Get("ssm")
 		envTag := field.Tag.Get("env")
 		requiredTag := field.Tag.Get("required")
+		jsonTag := field.Tag.Get("json")
 
 		fv := v.Field(i)
 		if !fv.CanSet() {
@@ -37,7 +39,62 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 		}
 
 		if fieldType.Kind() == reflect.Struct {
-			// Nested struct - recursively map it
+			// Check if this nested struct should be decoded from JSON
+			if jsonTag == "true" || jsonTag == "1" || jsonTag == "yes" {
+				// Decode nested struct from JSON string
+				var val string
+				var hasValue bool
+
+				// Check environment variable first (override)
+				if envTag != "" {
+					val = os.Getenv(envTag)
+					if val != "" {
+						hasValue = true
+					}
+				}
+
+				// Fall back to SSM parameter if env var not set or empty
+				if !hasValue && ssmTag != "" {
+					if ssmVal, exists := values[ssmTag]; exists && ssmVal != "" {
+						val = ssmVal
+						hasValue = true
+					}
+				}
+
+				// Only validate required fields - skip optional fields silently
+				if !hasValue {
+					if isRequiredField(requiredTag) {
+						missingInfo := fmt.Sprintf("field '%s' (ssm:'%s', env:'%s')", field.Name, ssmTag, envTag)
+						missingRequired = append(missingRequired, missingInfo)
+						if logger != nil {
+							logger("WARNING: Required field missing: %s", missingInfo)
+						}
+					}
+					continue
+				}
+
+				// Decode JSON into nested struct
+				var nestedPtr interface{}
+				if fv.Kind() == reflect.Ptr {
+					if fv.IsNil() {
+						fv.Set(reflect.New(fieldType))
+					}
+					nestedPtr = fv.Interface()
+					// For pointer, decode directly
+					if err := json.Unmarshal([]byte(val), nestedPtr); err != nil {
+						return fmt.Errorf("decoding JSON for nested struct field %s: %w", field.Name, err)
+					}
+				} else {
+					// For value type, decode into address
+					nestedPtr = fv.Addr().Interface()
+					if err := json.Unmarshal([]byte(val), nestedPtr); err != nil {
+						return fmt.Errorf("decoding JSON for nested struct field %s: %w", field.Name, err)
+					}
+				}
+				continue
+			}
+
+			// Nested struct - recursively map it from multiple SSM parameters
 			var nestedPtr interface{}
 			if fv.Kind() == reflect.Ptr {
 				if fv.IsNil() {
@@ -108,8 +165,27 @@ func mapToStruct(values map[string]string, dest interface{}, strict bool, logger
 			continue
 		}
 
-		if err := setFieldValue(fv, val); err != nil {
-			return fmt.Errorf("setting field %s: %w", field.Name, err)
+		// Check if JSON decoding is requested
+		if jsonTag == "true" || jsonTag == "1" || jsonTag == "yes" {
+			// Use JSON decoding - requires valid JSON format
+			if err := setFieldValueJSON(fv, val); err != nil {
+				return fmt.Errorf("decoding JSON for field %s: %w", field.Name, err)
+			}
+		} else {
+			// Use strongly typed conversion for simple types
+			// For complex types (non-string slices, maps), JSON decoding is required
+			if err := setFieldValue(fv, val); err != nil {
+				// If strongly typed conversion fails and it's a complex type,
+				// suggest using json:"true" tag
+				kind := fv.Kind()
+				if kind == reflect.Slice && fv.Type().Elem().Kind() != reflect.String {
+					return fmt.Errorf("setting field %s: %w (hint: use json:\"true\" tag for non-string slices)", field.Name, err)
+				}
+				if kind == reflect.Map {
+					return fmt.Errorf("setting field %s: %w (hint: use json:\"true\" tag for maps)", field.Name, err)
+				}
+				return fmt.Errorf("setting field %s: %w", field.Name, err)
+			}
 		}
 	}
 
@@ -225,5 +301,57 @@ func setFieldValue(fv reflect.Value, val string) error {
 		return fmt.Errorf("unsupported field type: %v", kind)
 	}
 
+	return nil
+}
+
+// setFieldValueJSON decodes a JSON string and sets it to the field value.
+// Supports structs, slices, maps, and other JSON-serializable types.
+func setFieldValueJSON(fv reflect.Value, val string) error {
+	if !fv.CanSet() {
+		return fmt.Errorf("field cannot be set")
+	}
+
+	// Trim whitespace
+	val = strings.TrimSpace(val)
+	if val == "" {
+		return fmt.Errorf("empty JSON string")
+	}
+
+	kind := fv.Kind()
+	typ := fv.Type()
+
+	// Handle pointer types
+	if kind == reflect.Ptr {
+		if typ.Elem().Kind() == reflect.Ptr {
+			return fmt.Errorf("nested pointers not supported for JSON decoding")
+		}
+
+		// Create new instance if pointer is nil
+		if fv.IsNil() {
+			fv.Set(reflect.New(typ.Elem()))
+		}
+
+		// Decode into the pointed-to value
+		return json.Unmarshal([]byte(val), fv.Interface())
+	}
+
+	// Handle interface{} type
+	if kind == reflect.Interface {
+		var result interface{}
+		if err := json.Unmarshal([]byte(val), &result); err != nil {
+			return fmt.Errorf("unmarshaling JSON: %w", err)
+		}
+		fv.Set(reflect.ValueOf(result))
+		return nil
+	}
+
+	// For non-pointer types, create a temporary pointer to unmarshal into
+	ptr := reflect.New(typ)
+	if err := json.Unmarshal([]byte(val), ptr.Interface()); err != nil {
+		return fmt.Errorf("unmarshaling JSON: %w", err)
+	}
+
+	// Set the value from the pointer
+	fv.Set(ptr.Elem())
 	return nil
 }
