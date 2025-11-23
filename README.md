@@ -668,17 +668,3 @@ go test -cover ./...
 # Run integration tests (requires AWS credentials)
 go test -tags=integration ./...
 ```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License.
-
-## Support
-
-For issues, questions, or contributions, please open an issue on GitHub.
-
----
